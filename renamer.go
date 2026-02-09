@@ -31,8 +31,8 @@ func ProcessScreenshot(cfg Config, screenshotPath string) RenameResult {
 		fmt.Println("[Renamer] OCR 텍스트 없음 - 이미지 분석으로 진행")
 	}
 
-	// 2. Claude CLI로 파일명 생성
-	fmt.Println("[Renamer] Claude CLI 호출 중...")
+	// 2. AI CLI로 파일명 생성
+	fmt.Printf("[Renamer] %s CLI 호출 중...\n", cfg.Provider)
 	suggestedName, err := GenerateName(cfg, screenshotPath, ocrResult)
 	if err != nil {
 		result.Error = fmt.Errorf("naming failed: %w", err)

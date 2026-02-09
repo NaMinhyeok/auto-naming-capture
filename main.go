@@ -15,7 +15,7 @@ import (
 var iconData []byte
 
 var (
-	cfg     Config
+	cfg     *Config
 	cfgLock sync.Mutex
 	watcher *Watcher
 )
@@ -25,7 +25,8 @@ func main() {
 }
 
 func onReady() {
-	cfg = LoadConfig()
+	loaded := LoadConfig()
+	cfg = &loaded
 
 	systray.SetIcon(iconData)
 	systray.SetTooltip("Auto Naming Capture")
@@ -50,7 +51,7 @@ func onReady() {
 
 	// Watcher 시작
 	var err error
-	watcher, err = NewWatcher(cfg, func(result RenameResult) {
+	watcher, err = NewWatcher(cfg, &cfgLock, func(result RenameResult) {
 		if result.Success {
 			mLast.SetTitle(fmt.Sprintf("Last: %s", filepath.Base(result.NewPath)))
 		} else if result.Error != nil {
@@ -73,21 +74,21 @@ func onReady() {
 				cfgLock.Lock()
 				cfg.Enabled = !cfg.Enabled
 				updateEnabledMenu(mEnabled, cfg.Enabled)
-				SaveConfig(cfg)
+				SaveConfig(*cfg)
 				cfgLock.Unlock()
 
 			case <-mClaude.ClickedCh:
 				cfgLock.Lock()
 				cfg.Provider = ProviderClaude
 				updateProviderMenu(mClaude, mCodex, cfg.Provider)
-				SaveConfig(cfg)
+				SaveConfig(*cfg)
 				cfgLock.Unlock()
 
 			case <-mCodex.ClickedCh:
 				cfgLock.Lock()
 				cfg.Provider = ProviderCodex
 				updateProviderMenu(mClaude, mCodex, cfg.Provider)
-				SaveConfig(cfg)
+				SaveConfig(*cfg)
 				cfgLock.Unlock()
 
 			case <-mOpenFolder.ClickedCh:

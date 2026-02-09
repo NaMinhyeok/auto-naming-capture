@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -16,13 +17,14 @@ var screenshotPatterns = []*regexp.Regexp{
 }
 
 type Watcher struct {
-	cfg        Config
+	cfg        *Config
+	cfgLock    *sync.Mutex
 	fsWatcher  *fsnotify.Watcher
 	onRenamed  func(RenameResult)
 	processing map[string]bool
 }
 
-func NewWatcher(cfg Config, onRenamed func(RenameResult)) (*Watcher, error) {
+func NewWatcher(cfg *Config, cfgLock *sync.Mutex, onRenamed func(RenameResult)) (*Watcher, error) {
 	fsw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create watcher: %w", err)
@@ -30,6 +32,7 @@ func NewWatcher(cfg Config, onRenamed func(RenameResult)) (*Watcher, error) {
 
 	return &Watcher{
 		cfg:        cfg,
+		cfgLock:    cfgLock,
 		fsWatcher:  fsw,
 		onRenamed:  onRenamed,
 		processing: make(map[string]bool),
@@ -89,12 +92,17 @@ func (w *Watcher) handleCreate(path string) {
 		time.Sleep(500 * time.Millisecond)
 		defer func() { delete(w.processing, path) }()
 
-		if !w.cfg.Enabled {
+		// 현재 설정의 스냅샷을 lock 하에 복사
+		w.cfgLock.Lock()
+		snapshot := *w.cfg
+		w.cfgLock.Unlock()
+
+		if !snapshot.Enabled {
 			fmt.Println("[Watcher] 비활성 상태 - 건너뜀")
 			return
 		}
 
-		result := ProcessScreenshot(w.cfg, path)
+		result := ProcessScreenshot(snapshot, path)
 		if w.onRenamed != nil {
 			w.onRenamed(result)
 		}
