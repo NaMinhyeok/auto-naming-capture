@@ -32,6 +32,10 @@ func onReady() {
 
 	mEnabled := systray.AddMenuItem("✓ Enabled", "Toggle auto-renaming")
 	systray.AddSeparator()
+	mProvider := systray.AddMenuItem("Provider", "AI Provider")
+	mClaude := mProvider.AddSubMenuItem("  Claude", "Use Claude CLI")
+	mCodex := mProvider.AddSubMenuItem("  Codex", "Use OpenAI Codex CLI")
+	systray.AddSeparator()
 	mLast := systray.AddMenuItem("Last: (none)", "Last renamed file")
 	mLast.Disable()
 	systray.AddSeparator()
@@ -42,6 +46,7 @@ func onReady() {
 
 	// 상태에 따라 메뉴 표시 업데이트
 	updateEnabledMenu(mEnabled, cfg.Enabled)
+	updateProviderMenu(mClaude, mCodex, cfg.Provider)
 
 	// Watcher 시작
 	var err error
@@ -71,6 +76,20 @@ func onReady() {
 				SaveConfig(cfg)
 				cfgLock.Unlock()
 
+			case <-mClaude.ClickedCh:
+				cfgLock.Lock()
+				cfg.Provider = ProviderClaude
+				updateProviderMenu(mClaude, mCodex, cfg.Provider)
+				SaveConfig(cfg)
+				cfgLock.Unlock()
+
+			case <-mCodex.ClickedCh:
+				cfgLock.Lock()
+				cfg.Provider = ProviderCodex
+				updateProviderMenu(mClaude, mCodex, cfg.Provider)
+				SaveConfig(cfg)
+				cfgLock.Unlock()
+
 			case <-mOpenFolder.ClickedCh:
 				openFolder(cfg.ScreenshotDir)
 
@@ -96,6 +115,16 @@ func updateEnabledMenu(m *systray.MenuItem, enabled bool) {
 		m.SetTitle("✓ Enabled")
 	} else {
 		m.SetTitle("  Disabled")
+	}
+}
+
+func updateProviderMenu(mClaude, mCodex *systray.MenuItem, provider Provider) {
+	if provider == ProviderCodex {
+		mClaude.SetTitle("  Claude")
+		mCodex.SetTitle("✓ Codex")
+	} else {
+		mClaude.SetTitle("✓ Claude")
+		mCodex.SetTitle("  Codex")
 	}
 }
 

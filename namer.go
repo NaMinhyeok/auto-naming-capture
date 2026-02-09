@@ -11,6 +11,15 @@ import (
 )
 
 func GenerateName(cfg Config, imagePath string, ocrResult OCRResult) (string, error) {
+	switch cfg.Provider {
+	case ProviderCodex:
+		return generateWithCodex(cfg, imagePath, ocrResult)
+	default:
+		return generateWithClaude(cfg, imagePath, ocrResult)
+	}
+}
+
+func generateWithClaude(cfg Config, imagePath string, ocrResult OCRResult) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -31,6 +40,36 @@ func GenerateName(cfg Config, imagePath string, ocrResult OCRResult) (string, er
 	return SanitizeFilename(name, cfg.MaxFileNameLen), nil
 }
 
+func generateWithCodex(cfg Config, imagePath string, ocrResult OCRResult) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	prompt := buildCodexPrompt(ocrResult)
+
+	cmd := exec.CommandContext(ctx, cfg.CodexPath,
+		"exec",
+		"-i", imagePath,
+		"--full-auto",
+		prompt,
+	)
+
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("codex cli error: %w", err)
+	}
+
+	name := strings.TrimSpace(string(out))
+	return SanitizeFilename(name, cfg.MaxFileNameLen), nil
+}
+
+const namingRules = `규칙:
+- 파일명만 출력 (확장자 제외)
+- 영어 또는 한글 사용
+- 공백 대신 하이픈(-) 사용
+- 간결하게 (2-5단어)
+- 특수문자 사용 금지
+- 파일명만 한 줄로 출력`
+
 func buildPrompt(imagePath string, ocrResult OCRResult) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("이 스크린샷의 이미지 경로: %s\n", imagePath))
@@ -41,15 +80,24 @@ func buildPrompt(imagePath string, ocrResult OCRResult) string {
 		sb.WriteString("OCR 텍스트: (추출된 텍스트 없음 - 이미지 분석으로 판단해주세요)\n\n")
 	}
 
-	sb.WriteString(`위 정보를 바탕으로 이 스크린샷의 내용을 설명하는 짧은 파일명을 제안해줘.
+	sb.WriteString("위 정보를 바탕으로 이 스크린샷의 내용을 설명하는 짧은 파일명을 제안해줘.\n\n")
+	sb.WriteString(namingRules)
 
-규칙:
-- 파일명만 출력 (확장자 제외)
-- 영어 또는 한글 사용
-- 공백 대신 하이픈(-) 사용
-- 간결하게 (2-5단어)
-- 특수문자 사용 금지
-- 파일명만 한 줄로 출력`)
+	return sb.String()
+}
+
+func buildCodexPrompt(ocrResult OCRResult) string {
+	var sb strings.Builder
+	sb.WriteString("이 스크린샷 이미지를 분석해줘.\n")
+
+	if ocrResult.HasText {
+		sb.WriteString(fmt.Sprintf("OCR 추출 텍스트:\n%s\n\n", ocrResult.Text))
+	} else {
+		sb.WriteString("OCR 텍스트: (추출된 텍스트 없음)\n\n")
+	}
+
+	sb.WriteString("이미지 내용을 설명하는 짧은 파일명을 제안해줘.\n\n")
+	sb.WriteString(namingRules)
 
 	return sb.String()
 }

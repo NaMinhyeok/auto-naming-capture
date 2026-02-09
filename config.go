@@ -8,12 +8,21 @@ import (
 	"strings"
 )
 
+type Provider string
+
+const (
+	ProviderClaude Provider = "claude"
+	ProviderCodex  Provider = "codex"
+)
+
 type Config struct {
-	ScreenshotDir  string `json:"screenshot_dir"`
-	OCRHelperPath  string `json:"ocr_helper_path"`
-	ClaudePath     string `json:"claude_path"`
-	MaxFileNameLen int    `json:"max_filename_length"`
-	Enabled        bool   `json:"enabled"`
+	ScreenshotDir  string   `json:"screenshot_dir"`
+	OCRHelperPath  string   `json:"ocr_helper_path"`
+	Provider       Provider `json:"provider"`
+	ClaudePath     string   `json:"claude_path"`
+	CodexPath      string   `json:"codex_path"`
+	MaxFileNameLen int      `json:"max_filename_length"`
+	Enabled        bool     `json:"enabled"`
 }
 
 func configDir() string {
@@ -47,15 +56,18 @@ func detectExecutablePath(name string) string {
 
 func DefaultConfig() Config {
 	execPath, _ := os.Executable()
-	ocrHelper := filepath.Join(filepath.Dir(execPath), "ocr-helper")
-	if _, err := os.Stat(ocrHelper); err != nil {
+	// 바이너리와 같은 디렉토리의 ocr-helper/ocr-helper를 먼저 확인
+	ocrHelper := filepath.Join(filepath.Dir(execPath), "ocr-helper", "ocr-helper")
+	if info, err := os.Stat(ocrHelper); err != nil || info.IsDir() {
 		ocrHelper = filepath.Join(".", "ocr-helper", "ocr-helper")
 	}
 
 	return Config{
 		ScreenshotDir:  detectScreenshotDir(),
 		OCRHelperPath:  ocrHelper,
+		Provider:       ProviderClaude,
 		ClaudePath:     detectExecutablePath("claude"),
+		CodexPath:      detectExecutablePath("codex"),
 		MaxFileNameLen: 80,
 		Enabled:        true,
 	}
@@ -82,6 +94,12 @@ func LoadConfig() Config {
 	}
 	if fileCfg.ClaudePath != "" {
 		cfg.ClaudePath = fileCfg.ClaudePath
+	}
+	if fileCfg.CodexPath != "" {
+		cfg.CodexPath = fileCfg.CodexPath
+	}
+	if fileCfg.Provider != "" {
+		cfg.Provider = fileCfg.Provider
 	}
 	if fileCfg.MaxFileNameLen > 0 {
 		cfg.MaxFileNameLen = fileCfg.MaxFileNameLen
