@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build OCR Helper
+        run: |
+          swiftc -O -o ocr-helper/ocr-helper ocr-helper/main.swift \
+            -framework Vision -framework CoreGraphics -framework ImageIO
+
+      - name: Build Go binary (arm64)
+        env:
+          GOARCH: arm64
+          CGO_ENABLED: "1"
+        run: go build -o auto-naming-capture-arm64 .
+
+      - name: Build Go binary (amd64)
+        env:
+          GOARCH: amd64
+          CGO_ENABLED: "1"
+        run: go build -o auto-naming-capture-amd64 .
+
+      - name: Run tests
+        run: go test ./... -v
+
+      - name: Package
+        run: |
+          mkdir -p dist/auto-naming-capture-darwin-arm64/ocr-helper
+          cp auto-naming-capture-arm64 dist/auto-naming-capture-darwin-arm64/auto-naming-capture
+          cp ocr-helper/ocr-helper dist/auto-naming-capture-darwin-arm64/ocr-helper/
+          tar -czf dist/auto-naming-capture-darwin-arm64.tar.gz -C dist auto-naming-capture-darwin-arm64
+
+          mkdir -p dist/auto-naming-capture-darwin-amd64/ocr-helper
+          cp auto-naming-capture-amd64 dist/auto-naming-capture-darwin-amd64/auto-naming-capture
+          cp ocr-helper/ocr-helper dist/auto-naming-capture-darwin-amd64/ocr-helper/
+          tar -czf dist/auto-naming-capture-darwin-amd64.tar.gz -C dist auto-naming-capture-darwin-amd64
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/auto-naming-capture-darwin-arm64.tar.gz
+            dist/auto-naming-capture-darwin-amd64.tar.gz
