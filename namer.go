@@ -63,74 +63,53 @@ func generateWithCodex(cfg Config, imagePath string, ocrResult OCRResult) (strin
 	return SanitizeFilename(name, cfg.MaxFileNameLen), nil
 }
 
-const systemPrompt = `너는 스크린샷 파일명 생성기야. 스크린샷의 내용을 분석하고 짧고 설명적인 파일명을 생성해.
+const systemPrompt = `너는 스크린샷 파일명 생성기야. 파일명만 한 줄로 출력해. 그 외 설명, 인사, 부가 텍스트는 절대 출력하지 마.
 
-규칙:
-- 파일명만 출력 (확장자 제외, 설명이나 부가 텍스트 없이 파일명 한 줄만)
-- 영어 또는 한글 사용
-- 공백 대신 하이픈(-) 사용
-- 간결하게 (2-5단어)
-- 특수문자 사용 금지
+## 분석 우선순위
 
-예시 출력:
+1단계: 이미지를 먼저 분석해. 어떤 앱/화면인지, 핵심 시각 요소가 무엇인지 파악해.
+2단계: OCR 텍스트가 있으면 보조 참고만 해. 텍스트에 끌려가지 말고 이미지에서 본 내용을 기반으로 판단해.
 
-[코드/개발]
-vscode-go-에러-하이라이트
-터미널-docker-compose-로그
-github-pr-review-댓글
-jetbrains-goland-디버거-중단점
+## 파일명 작성 원칙
 
-[채팅/커뮤니케이션]
-슬랙-프로젝트-채널-대화
-디스코드-음성채널-설정
-카카오톡-그룹채팅-일정공유
-
-[웹/브라우저]
-크롬-네트워크-탭-api-응답
-notion-프로젝트-칸반보드
-aws-ec2-인스턴스-목록
-
-[에러/알림]
-xcode-빌드-실패-로그
-vercel-배포-에러-타임아웃
-npm-의존성-충돌-경고
-
-[데이터/문서]
-grafana-cpu-사용량-대시보드
-figma-로그인-화면-디자인
-google-sheets-매출-차트
-
-[시스템/설정]
-macos-시스템설정-네트워크
-docker-desktop-컨테이너-목록
-iterm2-프로필-컬러-설정`
+구조: [앱/환경]-[핵심내용] (하이픈으로 연결, 2-5단어)
+언어: 한글 또는 영어, 자연스러운 쪽으로 선택
+금지: 확장자, 특수문자, 공백`
 
 func buildPrompt(imagePath string, ocrResult OCRResult) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("이미지 경로: %s\n", imagePath))
+	sb.WriteString("이미지를 분석하고 파일명을 생성해줘.")
 
 	if ocrResult.HasText {
-		sb.WriteString(fmt.Sprintf("OCR 추출 텍스트:\n%s", ocrResult.Text))
-	} else {
-		sb.WriteString("OCR 텍스트 없음. 이미지를 직접 분석해서 파일명을 생성해줘.")
+		// OCR은 보조 참고용으로만 제공, 500자 제한
+		text := truncate(ocrResult.Text, 500)
+		sb.WriteString(fmt.Sprintf("\n\n(참고용 OCR 텍스트:\n%s)", text))
 	}
 
 	return sb.String()
 }
 
 func buildCodexPrompt(ocrResult OCRResult) string {
-	// Codex는 system prompt 플래그가 없으므로 prompt에 역할 지시 포함
 	var sb strings.Builder
 	sb.WriteString(systemPrompt)
 	sb.WriteString("\n\n---\n\n")
+	sb.WriteString("첨부된 이미지를 분석하고 파일명을 생성해줘.")
 
 	if ocrResult.HasText {
-		sb.WriteString(fmt.Sprintf("OCR 추출 텍스트:\n%s", ocrResult.Text))
-	} else {
-		sb.WriteString("OCR 텍스트 없음. 첨부된 이미지를 분석해서 파일명을 생성해줘.")
+		text := truncate(ocrResult.Text, 500)
+		sb.WriteString(fmt.Sprintf("\n\n(참고용 OCR 텍스트:\n%s)", text))
 	}
 
 	return sb.String()
+}
+
+func truncate(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return string(runes[:maxRunes]) + "..."
 }
 
 var unsafeChars = regexp.MustCompile(`[^\p{L}\p{N}\-_]`)
