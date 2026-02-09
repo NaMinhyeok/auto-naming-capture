@@ -27,6 +27,7 @@ func generateWithClaude(cfg Config, imagePath string, ocrResult OCRResult) (stri
 
 	cmd := exec.CommandContext(ctx, cfg.ClaudePath,
 		"-p", prompt,
+		"--system-prompt", systemPrompt,
 		"--allowedTools", "Read",
 		"--output-format", "text",
 	)
@@ -62,42 +63,44 @@ func generateWithCodex(cfg Config, imagePath string, ocrResult OCRResult) (strin
 	return SanitizeFilename(name, cfg.MaxFileNameLen), nil
 }
 
-const namingRules = `규칙:
-- 파일명만 출력 (확장자 제외)
+const systemPrompt = `너는 스크린샷 파일명 생성기야. 스크린샷의 내용을 분석하고 짧고 설명적인 파일명을 생성해.
+
+규칙:
+- 파일명만 출력 (확장자 제외, 설명이나 부가 텍스트 없이 파일명 한 줄만)
 - 영어 또는 한글 사용
 - 공백 대신 하이픈(-) 사용
 - 간결하게 (2-5단어)
 - 특수문자 사용 금지
-- 파일명만 한 줄로 출력`
+
+예시 출력:
+슬랙-대화-정리
+github-pr-review
+터미널-빌드-에러`
 
 func buildPrompt(imagePath string, ocrResult OCRResult) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("이 스크린샷의 이미지 경로: %s\n", imagePath))
+	sb.WriteString(fmt.Sprintf("이미지 경로: %s\n", imagePath))
 
 	if ocrResult.HasText {
-		sb.WriteString(fmt.Sprintf("OCR 추출 텍스트:\n%s\n\n", ocrResult.Text))
+		sb.WriteString(fmt.Sprintf("OCR 추출 텍스트:\n%s", ocrResult.Text))
 	} else {
-		sb.WriteString("OCR 텍스트: (추출된 텍스트 없음 - 이미지 분석으로 판단해주세요)\n\n")
+		sb.WriteString("OCR 텍스트 없음. 이미지를 직접 분석해서 파일명을 생성해줘.")
 	}
-
-	sb.WriteString("위 정보를 바탕으로 이 스크린샷의 내용을 설명하는 짧은 파일명을 제안해줘.\n\n")
-	sb.WriteString(namingRules)
 
 	return sb.String()
 }
 
 func buildCodexPrompt(ocrResult OCRResult) string {
+	// Codex는 system prompt 플래그가 없으므로 prompt에 역할 지시 포함
 	var sb strings.Builder
-	sb.WriteString("이 스크린샷 이미지를 분석해줘.\n")
+	sb.WriteString(systemPrompt)
+	sb.WriteString("\n\n---\n\n")
 
 	if ocrResult.HasText {
-		sb.WriteString(fmt.Sprintf("OCR 추출 텍스트:\n%s\n\n", ocrResult.Text))
+		sb.WriteString(fmt.Sprintf("OCR 추출 텍스트:\n%s", ocrResult.Text))
 	} else {
-		sb.WriteString("OCR 텍스트: (추출된 텍스트 없음)\n\n")
+		sb.WriteString("OCR 텍스트 없음. 첨부된 이미지를 분석해서 파일명을 생성해줘.")
 	}
-
-	sb.WriteString("이미지 내용을 설명하는 짧은 파일명을 제안해줘.\n\n")
-	sb.WriteString(namingRules)
 
 	return sb.String()
 }
