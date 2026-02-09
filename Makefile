@@ -1,4 +1,4 @@
-.PHONY: build build-ocr build-go run clean
+.PHONY: build build-ocr build-go run test clean
 
 # Build everything
 build: build-ocr build-go
@@ -18,6 +18,10 @@ build-go:
 # Run the app
 run: build
 	./auto-naming-capture
+
+# Run tests
+test:
+	go test ./... -v -count=1
 
 # Clean build artifacts
 clean:
