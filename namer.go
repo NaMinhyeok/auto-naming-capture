@@ -73,9 +73,37 @@ const systemPrompt = `너는 스크린샷 파일명 생성기야. 스크린샷�
 - 특수문자 사용 금지
 
 예시 출력:
-슬랙-대화-정리
-github-pr-review
-터미널-빌드-에러`
+
+[코드/개발]
+vscode-go-에러-하이라이트
+터미널-docker-compose-로그
+github-pr-review-댓글
+jetbrains-goland-디버거-중단점
+
+[채팅/커뮤니케이션]
+슬랙-프로젝트-채널-대화
+디스코드-음성채널-설정
+카카오톡-그룹채팅-일정공유
+
+[웹/브라우저]
+크롬-네트워크-탭-api-응답
+notion-프로젝트-칸반보드
+aws-ec2-인스턴스-목록
+
+[에러/알림]
+xcode-빌드-실패-로그
+vercel-배포-에러-타임아웃
+npm-의존성-충돌-경고
+
+[데이터/문서]
+grafana-cpu-사용량-대시보드
+figma-로그인-화면-디자인
+google-sheets-매출-차트
+
+[시스템/설정]
+macos-시스템설정-네트워크
+docker-desktop-컨테이너-목록
+iterm2-프로필-컬러-설정`
 
 func buildPrompt(imagePath string, ocrResult OCRResult) string {
 	var sb strings.Builder
