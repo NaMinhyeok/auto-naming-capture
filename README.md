@@ -30,6 +30,13 @@ Screenshot 2026-02-09 at 14.30.45.png → 2026-02-09_슬랙-프로젝트-대화.
 
 ## Installation
 
+### Homebrew (Recommended)
+
+```bash
+brew tap NaMinhyeok/tap
+brew install auto-naming-capture
+```
+
 ### From source
 
 ```bash
